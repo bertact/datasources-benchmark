@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  db:
+  postgresql-db:
     image: postgres:16
     restart: always
     environment:
@@ -20,7 +20,14 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
     depends_on:
-      - db
+      - postgresql-db
+  
+  app:
+    build: .
+    volumes:
+      - .:/benchmark
+    depends_on:
+      - postgresql-db
 
 volumes:
   pgdata:
