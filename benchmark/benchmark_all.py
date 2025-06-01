@@ -1,5 +1,6 @@
 import psycopg2
 from pymongo import MongoClient
+import requests
 
 try:
     conn_postgres = psycopg2.connect(
@@ -10,11 +11,12 @@ try:
         port=5432,
     )
     print("Connected to Postgres DB")
-except:
+except Exception as e:
     print("Can't connect to Postgres DB")
+    print(f"{e}")
 
 
-cursor = conn_postgres.cursor()
+#cursor = conn_postgres.cursor()
 
 # try:
 #     cursor.execute(
@@ -33,7 +35,19 @@ cursor = conn_postgres.cursor()
 
 
 try:
-    conn_mongo = MongoClient("mongo", 27017, username="admin", password="password")
+    conn_mongo = MongoClient("mongo-db", 27017, username="admin", password="password")
     print("Connected to Mongo DB")
 except:
     print("Can't connect to Mongo DB")
+
+
+try:
+    conn_es = requests.get("http://elasticsearch-db:9200")
+    if conn_es.status_code == 200:
+        print("Connected to ES DB")
+    else:
+        print("Can't connect to ES DB")
+        print(f"{conn_es.status_code}")
+except requests.exceptions.RequestException as e:
+    print("Can't connect to ES")
+    print(f"{e}")
