@@ -1,6 +1,8 @@
 import requests
 import psycopg2
 from pymongo import MongoClient
+import pandas as pd
+import os
 
 
 def elasticsearch_connection():
@@ -39,3 +41,15 @@ def postgres_connection():
         return conn_postgres
     except Exception as e:
         print(f"Can't connect to Postgres DB, error: {e}")
+
+
+def load_dataset(path, datasets_path):
+    if path.endswith(".csv"):
+        file_path = os.path.join(datasets_path, path)
+        return pd.read_csv(file_path)
+    else:
+        raise ValueError(f"File type not supported: {path}")
+
+
+def get_table_name(dataset):
+    return dataset.removesuffix(".csv")
