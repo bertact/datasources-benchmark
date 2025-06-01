@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgresql-db:
     image: postgres:16
@@ -22,6 +20,24 @@ services:
     depends_on:
       - postgresql-db
   
+  mongo:
+    image: mongo:4
+    ports: 
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodata:/data/db
+
+  mongo-express:
+    image: mongo-express:0.54
+    ports:
+      - 8082:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: password
+  
   app:
     build: .
     volumes:
@@ -31,3 +47,4 @@ services:
 
 volumes:
   pgdata:
+  mongodata:
