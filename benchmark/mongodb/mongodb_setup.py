@@ -1,6 +1,6 @@
 from utils import to_json
 import time
-from utils import get_docker_stats
+from utils import get_docker_stats, save_stats_to_file
 
 
 def create_collection(client, table_name):
@@ -29,9 +29,11 @@ def mongodb_setup_db(conn, table_name, df, container_name):
     num_inserted, elapsed = insert_documents(collection, df)
     container_stats = get_docker_stats(container_name)
 
-    return {
+    mongo_stats = {
         "table_name": table_name,
         "num_documents": num_inserted,
         "client_response_time": elapsed,
         **container_stats,
     }
+
+    save_stats_to_file(database_method="mongo_insert", results_stats=mongo_stats)
