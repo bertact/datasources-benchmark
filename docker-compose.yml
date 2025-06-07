@@ -1,7 +1,6 @@
 services:
   postgresql-db:
     image: postgres:16
-    restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
@@ -23,10 +22,10 @@ services:
       - postgresql-db
     networks:
       - elastic
-  
+
   mongo-db:
     image: mongo:4
-    ports: 
+    ports:
       - 27017:27017
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
@@ -60,22 +59,26 @@ services:
       - 9200:9200
     networks:
       - elastic
-  
+
   app:
     build: .
     volumes:
       - .:/benchmark
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - postgresql-db
       - mongo-db
       - elasticsearch-db
     networks:
       - elastic
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
 
 volumes:
   pgdata:
   mongodata:
   esdata:
+
 
 networks:
   elastic:
