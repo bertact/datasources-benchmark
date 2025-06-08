@@ -105,8 +105,28 @@ def get_docker_stats(container_name):
         return {}
 
 
+def total_stats(table_name, num_inserted, end, start, stats_before, stats_after):
+    elapsed = end - start
+    cpu_delta = stats_after["cpu_total"] - stats_before["cpu_total"]
+    system_delta = stats_after["system_cpu"] - stats_before["system_cpu"]
+    memory_used = stats_after["memory"] - stats_before["memory"]
+
+    cpu_count = os.cpu_count()
+    cpu_percent = (cpu_delta / system_delta) * cpu_count * 100
+
+    return {
+        "table_name": table_name,
+        "num_documents": num_inserted,
+        "client_response_time": round(elapsed, 6),
+        "total_cpu": cpu_delta,
+        "system_cpu": system_delta,
+        "cpu_percent": round(cpu_percent, 6),
+        "memory_used_bytes": memory_used,
+    }
+
+
 def create_stats_files(database_method):
-    with open(f"{database_method}_performance.csv", "w", newline="") as f:
+    with open(f"results/{database_method}_performance.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
@@ -115,12 +135,13 @@ def create_stats_files(database_method):
                 "client_response_time",
                 "total_cpu",
                 "system_cpu",
+                "cpu_percent",
                 "memory_used_bytes",
             ]
         )
 
 
 def save_stats_to_file(database_method, results_stats):
-    with open(f"{database_method}_performance.csv", "a", newline="") as f:
+    with open(f"results/{database_method}_performance.csv", "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=results_stats.keys())
         writer.writerow(results_stats)

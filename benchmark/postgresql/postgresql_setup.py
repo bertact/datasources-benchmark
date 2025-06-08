@@ -1,6 +1,6 @@
 import time
 import pandas as pd
-from utils import get_docker_stats, save_stats_to_file
+from utils import get_docker_stats, save_stats_to_file, total_stats
 
 
 def map_dtype_to_postgres(dtype):
@@ -56,22 +56,12 @@ def insert_data(conn, table_name, file_path, container_name):
 
             stats_after = get_docker_stats(container_name)
 
-            elapsed = end - start
-            cpu_delta = stats_after["cpu_total"] - stats_before["cpu_total"]
-            system_delta = stats_after["system_cpu"] - stats_before["system_cpu"]
-            memory_used = stats_after["memory"] - stats_before["memory"]
-
             print(
                 f"Data from file inserted to postgres table {table_name} in {elapsed:.2f} seconds"
             )
-            return {
-                "table_name": table_name,
-                "num_documents": num_inserted,
-                "client_response_time": elapsed,
-                "total_cpu": cpu_delta,
-                "system_cpu": system_delta,
-                "memory_used_bytes": memory_used,
-            }
+            return total_stats(
+                table_name, num_inserted, end, start, stats_before, stats_after
+            )
     except Exception as e:
         cursor.execute("ROLLBACK")
         print(f"Error inserting in postgrestable {table_name}: {e}")

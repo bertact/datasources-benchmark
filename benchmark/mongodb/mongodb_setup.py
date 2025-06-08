@@ -1,6 +1,6 @@
 from utils import convert_csv_to_json_file
 import time
-from utils import get_docker_stats, save_stats_to_file
+from utils import get_docker_stats, save_stats_to_file, total_stats
 import json
 
 
@@ -33,20 +33,10 @@ def insert_documents(table_name, collection, json_path, container_name):
         end = time.perf_counter()
         stats_after = get_docker_stats(container_name)
 
-        elapsed = end - start
-        cpu_delta = stats_after["cpu_total"] - stats_before["cpu_total"]
-        system_delta = stats_after["system_cpu"] - stats_before["system_cpu"]
-        memory_used = stats_after["memory"] - stats_before["memory"]
-
         print(f"Inserted {num_inserted} JSON records")
-        return {
-            "table_name": table_name,
-            "num_documents": num_inserted,
-            "client_response_time": elapsed,
-            "total_cpu": cpu_delta,
-            "system_cpu": system_delta,
-            "memory_used_bytes": memory_used,
-        }
+        return total_stats(
+            table_name, num_inserted, end, start, stats_before, stats_after
+        )
 
     except Exception as e:
         print(f"Error inserting into MongoDB collection {table_name}: {e}")
