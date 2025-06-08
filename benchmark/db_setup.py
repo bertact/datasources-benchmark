@@ -21,7 +21,7 @@ def main():
         create_stats_files(database_method=f"{database}_insert")
 
     for dataset in os.listdir(datasets_path):
-        df = load_dataset(dataset, datasets_path)
+        file_path, df = load_dataset(dataset, datasets_path)
         table_name = get_table_name(dataset)
 
         postgres_conn = postgres_connection()
@@ -29,17 +29,18 @@ def main():
 
         postgresql_setup_db(
             postgres_conn,
+            file_path,
             table_name,
             df,
             container_name="datasources-benchmark-postgresql-db-1",
         )
 
-        mongodb_setup_db(
-            mongo_client,
-            table_name,
-            df,
-            container_name="datasources-benchmark-mongo-db-1",
-        )
+        # mongodb_setup_db(
+        #     mongo_client,
+        #     table_name,
+        #     df,
+        #     container_name="datasources-benchmark-mongo-db-1",
+        # )
 
 
 if __name__ == "__main__":

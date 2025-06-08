@@ -48,7 +48,7 @@ def postgres_connection():
 def load_dataset(path, datasets_path):
     if path.endswith(".csv"):
         file_path = os.path.join(datasets_path, path)
-        return pd.read_csv(file_path)
+        return file_path, pd.read_csv(file_path)
     else:
         raise ValueError(f"File type not supported: {path}")
 
@@ -91,32 +91,10 @@ def get_docker_stats(container_name):
 
         stats = container.stats(stream=False)
 
-        memory_used = stats["memory_stats"]["usage"]
-        memory_limit = stats["memory_stats"]["limit"]
-        memory_percent = (memory_used / memory_limit) * 100 if memory_limit > 0 else 0
-
-        swap = stats["memory_stats"]["stats"].get("swap", 0)
-
-        cpu_delta = (
-            stats["cpu_stats"]["cpu_usage"]["total_usage"]
-            - stats["precpu_stats"]["cpu_usage"]["total_usage"]
-        )
-        system_delta = (
-            stats["cpu_stats"]["system_cpu_usage"]
-            - stats["precpu_stats"]["system_cpu_usage"]
-        )
-        num_cpus = stats["cpu_stats"].get("online_cpus", 1)
-
-        if system_delta > 0.0 and cpu_delta > 0.0:
-            cpu_percent = (cpu_delta / system_delta) * num_cpus * 100.0
-
-        return {
-            "memory_used_bytes": memory_used,
-            "memory_limit_bytes": memory_limit,
-            "memory_percent": round(memory_percent, 2),
-            "cpu_percent": round(cpu_percent, 2),
-            "swap_bytes": swap,
-        }
+        cpu_total = stats["cpu_stats"]["cpu_usage"]["total_usage"]
+        system_cpu = stats["cpu_stats"]["system_cpu_usage"]
+        mem = stats["memory_stats"]["usage"]
+        return {"cpu_total": cpu_total, "system_cpu": system_cpu, "memory": mem}
     except Exception as e:
         print("Failed to get Docker stats:", e)
         return {}
@@ -130,11 +108,9 @@ def create_stats_files(database_method):
                 "table_name",
                 "num_documents",
                 "client_response_time",
+                "total_cpu",
+                "system_cpu",
                 "memory_used_bytes",
-                "memory_limit_bytes",
-                "memory_percent",
-                "cpu_percent",
-                "swap_bytes",
             ]
         )
 

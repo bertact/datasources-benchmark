@@ -1,55 +1,92 @@
 import time
+import pandas as pd
 from utils import get_docker_stats, save_stats_to_file
 
 
-def create_table(conn, table_name, df):
+def map_dtype_to_postgres(dtype):
+    if pd.api.types.is_integer_dtype(dtype):
+        return "BIGINT"
+    elif pd.api.types.is_float_dtype(dtype):
+        return "FLOAT"
+    elif pd.api.types.is_bool_dtype(dtype):
+        return "BOOLEAN"
+    elif pd.api.types.is_datetime64_any_dtype(dtype):
+        return "TIMESTAMP"
+    else:
+        return "TEXT"
+
+
+def create_table(conn, table_name, file_path):
     cursor = conn.cursor()
 
-    columns = ", ".join([f"{col} VARCHAR" for col in df.columns])
-    create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
-
     try:
+        df = pd.read_csv(file_path, nrows=5000, parse_dates=True)
+        columns = ", ".join(
+            [
+                f"{col} {map_dtype_to_postgres(dtype)}"
+                for col, dtype in df.dtypes.items()
+            ]
+        )
+        create_table_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({columns})"
         cursor.execute(create_table_query)
         conn.commit()
         print(f"Table {table_name} has been created")
     except Exception as e:
         cursor.execute("ROLLBACK")
-        print(e)
+        print(f"Failed to create table {table_name}: {e}")
 
 
-def insert_data(conn, table_name, df):
+def insert_data(conn, table_name, file_path, container_name):
     cursor = conn.cursor()
 
-    insert_query = f"INSERT INTO {table_name} ({', '.join(df.columns)}) VALUES ({', '.join(['%s'] * len(df.columns))})"
-    data = df.values.tolist()
-
     try:
-        start = time.perf_counter()
-        cursor.executemany(insert_query, data)
-        end = time.perf_counter()
 
-        elapsed = end - start
+        with open(file_path, "r", encoding="utf-8") as f:
+            num_inserted = sum(1 for _ in f) - 1
+            f.seek(0)
 
-        conn.commit()
-        print(
-            f"Data from file inserted to postgres table {table_name} in {elapsed:.2f} seconds"
-        )
-        return len(data), elapsed
+            stats_before = get_docker_stats(container_name)
+
+            start = time.perf_counter()
+            cursor.copy_expert(
+                f"COPY {table_name} FROM STDIN WITH CSV HEADER DELIMITER ','", f
+            )
+            conn.commit()
+            end = time.perf_counter()
+
+            stats_after = get_docker_stats(container_name)
+
+            elapsed = end - start
+            cpu_delta = stats_after["cpu_total"] - stats_before["cpu_total"]
+            system_delta = stats_after["system_cpu"] - stats_before["system_cpu"]
+            memory_used = stats_after["memory"] - stats_before["memory"]
+
+            print(
+                f"Data from file inserted to postgres table {table_name} in {elapsed:.2f} seconds"
+            )
+            return {
+                "table_name": table_name,
+                "num_documents": num_inserted,
+                "client_response_time": elapsed,
+                "total_cpu": cpu_delta,
+                "system_cpu": system_delta,
+                "memory_used_bytes": memory_used,
+            }
     except Exception as e:
         cursor.execute("ROLLBACK")
-        print(e)
+        print(f"Error inserting in postgrestable {table_name}: {e}")
+        return {
+            "table_name": table_name,
+            "num_documents": 0,
+            "client_response_time": 0,
+            "total_cpu": 0,
+            "system_cpu": 0,
+            "memory_used_bytes": 0,
+        }
 
 
-def postgresql_setup_db(conn, table_name, df, container_name):
-    create_table(conn, table_name, df)
-    num_inserted, elapsed = insert_data(conn, table_name, df)
-    container_stats = get_docker_stats(container_name)
-
-    postgres_stats = {
-        "table_name": table_name,
-        "num_documents": num_inserted,
-        "client_response_time": elapsed,
-        **container_stats,
-    }
+def postgresql_setup_db(conn, file_path, table_name, df, container_name):
+    create_table(conn, table_name, file_path)
+    postgres_stats = insert_data(conn, table_name, file_path, container_name)
 
     save_stats_to_file(database_method="postgres_insert", results_stats=postgres_stats)
