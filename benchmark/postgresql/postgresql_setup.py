@@ -85,7 +85,7 @@ def insert_data(conn, table_name, file_path, container_name):
         }
 
 
-def postgresql_setup_db(conn, file_path, table_name, df, container_name):
+def postgresql_setup_db(conn, file_path, table_name, container_name):
     create_table(conn, table_name, file_path)
     postgres_stats = insert_data(conn, table_name, file_path, container_name)
 

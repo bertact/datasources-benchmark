@@ -1,39 +1,68 @@
-from utils import to_json
+from utils import convert_csv_to_json_file
 import time
 from utils import get_docker_stats, save_stats_to_file
+import json
 
 
 def create_collection(client, table_name):
     database = client["mongodb_benchmark"]
     collection = database[f"{table_name}"]
+    print(f"Collection {table_name} created in MongoDB")
     return collection
 
 
-def insert_documents(collection, df):
-    data = to_json(df)
+def insert_documents(table_name, collection, json_path, container_name):
+    num_inserted = 0
 
-    if data:
+    try:
+        stats_before = get_docker_stats(container_name)
         start = time.perf_counter()
-        collection.insert_many(data)
+
+        with open(json_path, "r", encoding="utf-8") as infile:
+            batch = []
+            for line in infile:
+                batch.append(json.loads(line))
+                if len(batch) >= 5000:
+                    collection.insert_many(batch)
+                    num_inserted += len(batch)
+                    batch = []
+            if batch:
+                collection.insert_many(batch)
+                num_inserted += len(batch)
+
         end = time.perf_counter()
+        stats_after = get_docker_stats(container_name)
 
         elapsed = end - start
-        print(f"Inserted {len(data)} documents to MongoDB in {elapsed:.2f} seconds")
+        cpu_delta = stats_after["cpu_total"] - stats_before["cpu_total"]
+        system_delta = stats_after["system_cpu"] - stats_before["system_cpu"]
+        memory_used = stats_after["memory"] - stats_before["memory"]
 
-        return len(data), elapsed
-    return 0, 0
+        print(f"Inserted {num_inserted} JSON records")
+        return {
+            "table_name": table_name,
+            "num_documents": num_inserted,
+            "client_response_time": elapsed,
+            "total_cpu": cpu_delta,
+            "system_cpu": system_delta,
+            "memory_used_bytes": memory_used,
+        }
+
+    except Exception as e:
+        print(f"Error inserting into MongoDB collection {table_name}: {e}")
+        return {
+            "table_name": table_name,
+            "num_documents": num_inserted,
+            "client_response_time": 0,
+            "total_cpu": 0,
+            "system_cpu": 0,
+            "memory_used_bytes": 0,
+        }
 
 
-def mongodb_setup_db(conn, table_name, df, container_name):
+def mongodb_setup_db(conn, file_path, table_name, container_name):
     collection = create_collection(conn, table_name)
-    num_inserted, elapsed = insert_documents(collection, df)
-    container_stats = get_docker_stats(container_name)
-
-    mongo_stats = {
-        "table_name": table_name,
-        "num_documents": num_inserted,
-        "client_response_time": elapsed,
-        **container_stats,
-    }
+    json_path = convert_csv_to_json_file(file_path)
+    mongo_stats = insert_documents(table_name, collection, json_path, container_name)
 
     save_stats_to_file(database_method="mongo_insert", results_stats=mongo_stats)

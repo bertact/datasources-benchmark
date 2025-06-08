@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import docker
 import csv
+import json
 
 
 def elasticsearch_connection():
@@ -48,17 +49,21 @@ def postgres_connection():
 def load_dataset(path, datasets_path):
     if path.endswith(".csv"):
         file_path = os.path.join(datasets_path, path)
-        return file_path, pd.read_csv(file_path)
+        table_name = path.removesuffix(".csv")
+        return file_path, table_name
     else:
         raise ValueError(f"File type not supported: {path}")
 
 
-def get_table_name(dataset):
-    return dataset.removesuffix(".csv")
-
-
-def to_json(df):
-    return df.to_dict(orient="records")
+def convert_csv_to_json_file(csv_path, chunksize=5000):
+    json_path = csv_path.replace("csv", "json")
+    with open(json_path, "w", encoding="utf-8") as outfile:
+        for chunk in pd.read_csv(csv_path, chunksize=chunksize):
+            records = chunk.to_dict(orient="records")
+            for record in records:
+                outfile.write(json.dumps(record) + "\n")
+    print(f"CSV file {csv_path} converted to json")
+    return json_path
 
 
 def flatten_json(context, old_json, new_json):
