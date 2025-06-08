@@ -5,7 +5,7 @@ import json
 
 
 def create_collection(client, table_name):
-    database = client["mongodb_benchmark"]
+    database = client["benchmark_mongodb"]
     collection = database[f"{table_name}"]
     print(f"Collection {table_name} created in MongoDB")
     return collection

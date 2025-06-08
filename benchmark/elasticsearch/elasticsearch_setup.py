@@ -3,7 +3,7 @@ from utils import flatten_file
 
 def create_collection(client, table_name):
     print(client.list_database_names())
-    database = client["mongodb_benchmark"]
+    database = client["benchmark_mongodb"]
     collection = database[f"{table_name}"]
     return collection
 

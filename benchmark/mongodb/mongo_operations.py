@@ -32,7 +32,7 @@ def select_by_id(collection, database_method, id, container_name):
 
 def execute_op_mondodb(container_name):
     client = mongo_connection()
-    database = client["mongodb_benchmark"]
+    database = client["benchmark_mongodb"]
     collection = database["employees"]
 
     # Get max id of the table

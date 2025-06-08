@@ -59,9 +59,22 @@ services:
       - 9200:9200
     networks:
       - elastic
+  
+  graphql-api:
+    build: ./graphql_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgresql-db
+      - mongo-db
+    networks:
+      - elastic
+    environment:
+      POSTGRES_URL: postgresql://postgres:password@postgresql-db:5432/benchmark_postgres
+      MONGO_URL: mongodb://mongo-db:27017
 
   app:
-    build: .
+    build: ./benchmark_app
     volumes:
       - .:/benchmark
       - /var/run/docker.sock:/var/run/docker.sock

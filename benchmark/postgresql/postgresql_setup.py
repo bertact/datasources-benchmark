@@ -56,9 +56,7 @@ def insert_data(conn, table_name, file_path, container_name):
 
             stats_after = get_docker_stats(container_name)
 
-            print(
-                f"Data from file inserted to postgres table {table_name} in {elapsed:.2f} seconds"
-            )
+            print(f"Data from file inserted to postgres table {table_name}")
             return total_stats(
                 table_name, num_inserted, end, start, stats_before, stats_after
             )
