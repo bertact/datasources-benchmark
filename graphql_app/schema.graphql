@@ -1,0 +1,12 @@
+type Employee {
+  emp_id: Int!
+  name: String
+  salary: Int!
+  city: String
+  dpt_id: Int!
+  prj_id: Int!
+}
+
+type Query {
+  employeeById(emp_id: Int!): Employee
+}

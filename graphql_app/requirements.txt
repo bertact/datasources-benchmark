@@ -1,0 +1,6 @@
+ariadne
+uvicorn
+psycopg2-binary
+sqlalchemy
+pymongo
+motor

@@ -1,8 +1,7 @@
-FROM python:3.13.3
+FROM python:3.11-slim
 
 # Following runs will be run in this directory
-#ARG WORKDIR="/app"
-#WORKDIR ${WORKDIR}  
+#ARG WORKDIR="/app" 
 
 # Copy requirements in current WORKDIR
 COPY requirements.txt .
@@ -11,6 +10,3 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 #COPY . .
-
-# To run python code when build:
-# CMD ["python", "main.py"]
