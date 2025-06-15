@@ -1,7 +1,6 @@
 FROM python:3.11-slim
 
-# Following runs will be run in this directory
-#ARG WORKDIR="/app" 
+RUN apt-get update && apt-get install -y docker.io curl gnupg2 && apt-get clean
 
 # Copy requirements in current WORKDIR
 COPY requirements.txt .
