@@ -171,10 +171,10 @@ def join_city_state(
 ):
     query = sql.SQL(
         """
-        SELECT e.*, l.city_alias
+        SELECT e.*, l.state AS state_long
         FROM {} AS e
         JOIN {} AS l
-        ON e.city = l.city AND e.state = l.state_short
+        ON e.state = l.abbreviation
         """
     ).format(sql.Identifier(main_table), sql.Identifier(join_table))
 
@@ -191,12 +191,30 @@ def join_city_state(
     save_stats_to_file(database_method, stats)
 
 
+def set_index(postgres_conn, cursor, use_index=True):
+    if use_index:
+        statements = [
+            "DROP INDEX IF EXISTS idx_employees_city;",
+            "DROP INDEX IF EXISTS idx_us_cities_city;",
+            "CREATE INDEX idx_employees_city ON employees(city);",
+            "CREATE INDEX idx_us_cities_city ON us_cities_states_counties(city);",
+        ]
+    else:
+        statements = [
+            "DROP INDEX IF EXISTS idx_employees_city;",
+            "DROP INDEX IF EXISTS idx_us_cities_city;",
+        ]
+
+    for statement in statements:
+        cursor.execute(statement)
+
+    postgres_conn.commit()
+
+
 def delete_by_id(
     postgres_conn, cursor, database_method, table_name, id, container_name
 ):
-    query = sql.SQL("DELETE FROM {} WHERE emp_id = %s").format(
-        sql.Identifier(table_name)
-    )
+    query = sql.SQL("DELETE FROM {} WHERE id = %s").format(sql.Identifier(table_name))
 
     stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
@@ -215,7 +233,7 @@ def execute_op_postgres(container_name):
 
     # Insert
     insert_path = "./datasets/insert"
-    database_method = "postgres_insert"
+    database_method = "postgres_insert_rows"
     create_stats_files(database_method)
     for dataset in os.listdir(insert_path):
         file_path, table_name = load_dataset(dataset, insert_path)
@@ -289,8 +307,9 @@ def execute_op_postgres(container_name):
     restart_postgres(container_name)
     postgres_conn, cursor = reconnect_postgres()
 
-    # Join
-    database_method = "postgres_join"
+    # Join without indexes
+    set_index(postgres_conn, cursor, use_index=False)
+    database_method = "postgres_join_no_index"
     create_stats_files(database_method)
     for i in range(30):
         join_city_state(
@@ -298,6 +317,39 @@ def execute_op_postgres(container_name):
             cursor,
             database_method,
             main_table="employees",
-            join_table="us_cities_states_counties",
+            join_table="state_abbrevs",
+            container_name=container_name,
+        )
+
+    restart_postgres(container_name)
+    postgres_conn, cursor = reconnect_postgres()
+
+    # Join with indexes
+    database_method = "postgres_join_index"
+    create_stats_files(database_method)
+    for i in range(30):
+        set_index(postgres_conn, cursor, use_index=True)
+        join_city_state(
+            postgres_conn,
+            cursor,
+            database_method,
+            main_table="employees",
+            join_table="state_abbrevs",
+            container_name=container_name,
+        )
+
+    restart_postgres(container_name)
+    postgres_conn, cursor = reconnect_postgres()
+
+    # Delete
+    database_method = "postgres_delete"
+    create_stats_files(database_method)
+    for id in delete_ids:
+        delete_by_id(
+            postgres_conn,
+            cursor,
+            database_method,
+            table_name="employees",
+            id=id,
             container_name=container_name,
         )
