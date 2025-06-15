@@ -28,7 +28,6 @@ def restart_postgres(container_name):
     print(f"Restarting container {container_name} to clear cache")
     subprocess.run(["docker", "restart", container_name])
     wait_for_postgres(container_name)
-    print("PostgreSQL container restarted.\n")
 
 
 def reconnect_postgres():
@@ -74,7 +73,6 @@ def get_all_ids(postgres_conn, cursor, table_name, limit=None):
     rows = cursor.fetchall()
     ids = [row[0] for row in rows]
     postgres_conn.commit()
-    print(f"Retrieved {len(ids)} IDs from {table_name}")
 
     third = len(ids) // 3
     select_ids = ids[:third]
@@ -235,16 +233,15 @@ def execute_op_postgres(container_name):
     insert_path = "./datasets/insert"
     database_method = "postgres_insert_rows"
     create_stats_files(database_method)
-    for dataset in os.listdir(insert_path):
-        file_path, table_name = load_dataset(dataset, insert_path)
-        insert(
-            postgres_conn,
-            cursor,
-            database_method,
-            table_name,
-            file_path=file_path,
-            container_name=container_name,
-        )
+    file_path = insert_path + "/employees.csv"
+    insert(
+        postgres_conn,
+        cursor,
+        database_method,
+        table_name="employees",
+        file_path=file_path,
+        container_name=container_name,
+    )
 
     restart_postgres(container_name)
     postgres_conn, cursor = reconnect_postgres()
@@ -311,7 +308,7 @@ def execute_op_postgres(container_name):
     set_index(postgres_conn, cursor, use_index=False)
     database_method = "postgres_join_no_index"
     create_stats_files(database_method)
-    for i in range(30):
+    for _ in range(30):
         join_city_state(
             postgres_conn,
             cursor,

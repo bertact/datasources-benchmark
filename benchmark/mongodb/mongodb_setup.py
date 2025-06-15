@@ -18,9 +18,9 @@ def insert_documents(table_name, collection, json_path, container_name):
         stats_before = get_docker_stats(container_name)
         start = time.perf_counter()
 
-        with open(json_path, "r", encoding="utf-8") as infile:
+        with open(json_path, "r", encoding="utf-8") as f:
             batch = []
-            for line in infile:
+            for line in f:
                 batch.append(json.loads(line))
                 if len(batch) >= 5000:
                     collection.insert_many(batch)
