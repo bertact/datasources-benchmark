@@ -25,7 +25,6 @@ def mongo_connection():
         conn_mongo = MongoClient(
             "mongo-db", 27017, username="admin", password="password"
         )
-        print("Connected to Mongo DB")
         return conn_mongo
     except Exception as e:
         print(f"Can't connect to Mongo DB, error: {e}")
@@ -40,7 +39,6 @@ def postgres_connection():
             password="password",
             port=5432,
         )
-        print("Connected to Postgres DB")
         return conn_postgres
     except Exception as e:
         print(f"Can't connect to Postgres DB, error: {e}")

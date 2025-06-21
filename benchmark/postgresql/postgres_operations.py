@@ -1,16 +1,11 @@
 from utils import postgres_connection
 from psycopg2 import sql
-from utils import (
-    create_stats_files,
-    save_stats_to_file,
-    get_docker_stats,
-    total_stats,
-    load_dataset,
-)
 import time
-import os
+from pathlib import Path
 import csv
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from statistics import mean
 
 
 def wait_for_postgres(container_name):
@@ -35,35 +30,72 @@ def reconnect_postgres():
     return conn, conn.cursor()
 
 
-def insert(
-    postgres_conn, cursor, database_method, table_name, file_path, container_name
-):
-    with open(file_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for line in reader:
-            columns = line.keys()
-            values = [line[col] for col in columns]
-            placeholders = sql.SQL(", ").join(sql.Placeholder() * len(columns))
+def run_parallel(worker_fn, work_items, csv_path: Path, max_workers: int = 16):
 
-            query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
-                sql.Identifier(table_name),
-                sql.SQL(", ").join(map(sql.Identifier, columns)),
-                placeholders,
-            )
+    t0 = time.perf_counter()
+    print(f"Launching {len(work_items)} tasks on {max_workers} workers …")
 
-            stats_before = get_docker_stats(container_name)
-            start = time.perf_counter()
-            cursor.execute(query, values)
-            end = time.perf_counter()
-            stats_after = get_docker_stats(container_name)
+    rows = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future = {executor.submit(worker_fn, item): item for item in work_items}
+        for fut in as_completed(future):
+            try:
+                rows.append(fut.result())
+            except Exception as exc:
+                print(f"‼️ task {future[fut]} crashed: {exc}")
 
-            postgres_conn.commit()
-            stats = total_stats(table_name, 1, end, start, stats_before, stats_after)
-            save_stats_to_file(database_method, stats)
+    elapsed = time.perf_counter() - t0
+    print(f"All tasks done in {elapsed:,.2f}s")
+
+    if rows:
+        csv_path.parent.mkdir(exist_ok=True, parents=True)
+        with csv_path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+
+        print(f"Wrote per-operation metrics → {csv_path}")
+
+        avg_rt = mean(r["duration_ms"] for r in rows)
+        print(f"Avg. response time: {avg_rt:.2f} ms across {len(rows)} ops")
 
 
-def get_all_ids(postgres_conn, cursor, table_name, limit=None):
-    query = sql.SQL("SELECT id FROM {} ORDER BY id").format(sql.Identifier(table_name))
+def insert(line, table_name):
+    postgres_conn, cursor = reconnect_postgres()
+
+    columns = list(line.keys())
+    values = [line[col] for col in columns]
+
+    query = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        sql.Identifier(table_name),
+        sql.SQL(", ").join(map(sql.Identifier, columns)),
+        sql.SQL(", ").join(sql.Placeholder() * len(columns)),
+    )
+
+    start = time.perf_counter()
+    cursor.execute(query, values)
+    end = time.perf_counter()
+    postgres_conn.commit()
+
+    dur_ms = (end - start) * 1_000
+
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
+
+
+def get_all_ids(table_name, limit=None):
+    postgres_conn, cursor = reconnect_postgres()
+
+    query = sql.SQL("SELECT DISTINCT id FROM {} ORDER BY id").format(
+        sql.Identifier(table_name)
+    )
     if limit:
         query += sql.SQL(" LIMIT %s")
         cursor.execute(query, (limit,))
@@ -78,10 +110,16 @@ def get_all_ids(postgres_conn, cursor, table_name, limit=None):
     select_ids = ids[:third]
     update_ids = ids[third : 2 * third]
     delete_ids = ids[2 * third :]
+
+    cursor.close()
+    postgres_conn.close()
+
     return select_ids, update_ids, delete_ids
 
 
-def get_cities(postgres_conn, cursor, table_name, limit=None):
+def get_cities(table_name, limit=None):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL("SELECT DISTINCT city FROM {}").format(sql.Identifier(table_name))
     if limit:
         query += sql.SQL(" LIMIT %s")
@@ -90,35 +128,40 @@ def get_cities(postgres_conn, cursor, table_name, limit=None):
         cursor.execute(query)
 
     rows = cursor.fetchall()
-    ids = [row[0] for row in rows]
+    cities = [row[0] for row in rows]
     postgres_conn.commit()
-    print(f"Retrieved {len(ids)} cities from {table_name}")
-    return ids
+
+    cursor.close()
+    postgres_conn.close()
+
+    return cities
 
 
-def select_by_id(
-    postgres_conn, cursor, database_method, table_name, id, container_name
-):
+def select_by_id(table_name, id):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL("SELECT * FROM {} WHERE id = %s").format(sql.Identifier(table_name))
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     cursor.execute(query, (id,))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    result = cursor.fetchall()
-    postgres_conn.commit()
-    if result:
-        stats = total_stats(
-            table_name, len(result), end, start, stats_before, stats_after
-        )
-        save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
 
 
-def select_filtering(
-    postgres_conn, cursor, database_method, table_name, city, container_name
-):
+def select_filtering(table_name, city):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL(
         """
         SELECT * FROM {}
@@ -131,42 +174,50 @@ def select_filtering(
         """
     ).format(sql.Identifier(table_name))
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     cursor.execute(query, (city,))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    result = cursor.fetchall()
-    postgres_conn.commit()
-    if result:
-        stats = total_stats(
-            table_name, len(result), end, start, stats_before, stats_after
-        )
-        save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
 
 
-def update_salary_by_id(
-    postgres_conn, cursor, database_method, table_name, id, container_name
-):
+def update_salary_by_id(table_name, id):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL("UPDATE {} SET salary = %s WHERE id = %s").format(
         sql.Identifier(table_name)
     )
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     cursor.execute(query, (65000, id))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    postgres_conn.commit()
-    stats = total_stats(table_name, 1, end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
 
 
-def join_city_state(
-    postgres_conn, cursor, database_method, main_table, join_table, container_name
-):
+def join_city_state(main_table, join_table):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL(
         """
         SELECT e.*, l.state AS state_long
@@ -176,20 +227,26 @@ def join_city_state(
         """
     ).format(sql.Identifier(main_table), sql.Identifier(join_table))
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     cursor.execute(query)
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    result = cursor.fetchall()
-    postgres_conn.commit()
+    dur_ms = (end - start) * 1_000
 
-    stats = total_stats(main_table, len(result), end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": main_table,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
 
 
-def set_index(postgres_conn, cursor, use_index=True):
+def set_index(use_index=True):
+    postgres_conn, cursor = reconnect_postgres()
+
     if use_index:
         statements = [
             "DROP INDEX IF EXISTS idx_employees_city;",
@@ -208,145 +265,125 @@ def set_index(postgres_conn, cursor, use_index=True):
 
     postgres_conn.commit()
 
+    cursor.close()
+    postgres_conn.close()
 
-def delete_by_id(
-    postgres_conn, cursor, database_method, table_name, id, container_name
-):
+
+def delete_by_id(table_name, id):
+    postgres_conn, cursor = reconnect_postgres()
+
     query = sql.SQL("DELETE FROM {} WHERE id = %s").format(sql.Identifier(table_name))
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     cursor.execute(query, (id,))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    postgres_conn.commit()
-    stats = total_stats(table_name, 1, end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    cursor.close()
+    postgres_conn.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": cursor.rowcount,
+    }
 
 
 def execute_op_postgres(container_name):
-    postgres_conn = postgres_connection()
-    cursor = postgres_conn.cursor()
-
     # Insert
-    insert_path = "./datasets/insert"
-    database_method = "postgres_insert_rows"
-    create_stats_files(database_method)
-    file_path = insert_path + "/employees.csv"
-    insert(
-        postgres_conn,
-        cursor,
-        database_method,
-        table_name="employees",
-        file_path=file_path,
-        container_name=container_name,
-    )
+    insert_path = "./datasets/insert/employees.csv"
+    result_file = "./performance_results/postgres_insert_rows.csv"
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
+    with open(insert_path, newline="", encoding="utf-8") as f:
+        work = [row for _, row in zip(range(1000), csv.DictReader(f))]
 
-    # Get 30 ids from the table
-    select_ids, update_ids, delete_ids = get_all_ids(
-        postgres_conn, cursor, table_name="employees", limit=90
-    )
+    def one(row):
+        return insert(row, table_name="employees")
 
-    # # Select
-    database_method = "postgres_select"
-    create_stats_files(database_method)
+    run_parallel(one, work, Path(result_file), max_workers=8)
 
-    for id in select_ids:
-        select_by_id(
-            postgres_conn,
-            cursor,
-            database_method,
-            table_name="employees",
-            id=id,
-            container_name=container_name,
-        )
+    # restart_postgres(container_name)
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
-
-    # Get 30 cities from the table
-    list_cities = get_cities(postgres_conn, cursor, table_name="employees", limit=30)
+    # Get 3000 ids from the table
+    select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
 
     # Select
-    database_method = "postgres_filter"
-    create_stats_files(database_method)
+    result_file = "./performance_results/postgres_select.csv"
 
-    for city in list_cities:
-        select_filtering(
-            postgres_conn,
-            cursor,
-            database_method,
+    def one(id):
+        return select_by_id(
+            table_name="employees",
+            id=id,
+        )
+
+    run_parallel(one, select_ids, Path(result_file), max_workers=8)
+
+    # Get 1000 cities from the table
+    list_cities = get_cities(table_name="employees", limit=1000)
+
+    # Select filtering
+    result_file = "./performance_results/postgres_select_filtering.csv"
+
+    def one(city):
+        return select_filtering(
             table_name="employees",
             city=city,
-            container_name=container_name,
         )
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
+    run_parallel(one, list_cities, Path(result_file), max_workers=8)
+
+    # restart_postgres(container_name)
 
     # Update
-    database_method = "postgres_update"
-    create_stats_files(database_method)
-    for id in update_ids:
-        update_salary_by_id(
-            postgres_conn,
-            cursor,
-            database_method,
+    result_file = "./performance_results/postgres_update.csv"
+
+    def one(id):
+        return update_salary_by_id(
             table_name="employees",
             id=id,
-            container_name=container_name,
         )
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
+    run_parallel(one, update_ids, Path(result_file), max_workers=8)
+
+    # restart_postgres(container_name)
 
     # Join without indexes
-    set_index(postgres_conn, cursor, use_index=False)
-    database_method = "postgres_join_no_index"
-    create_stats_files(database_method)
-    for _ in range(30):
-        join_city_state(
-            postgres_conn,
-            cursor,
-            database_method,
+    set_index(use_index=False)
+    result_file = "./performance_results/postgres_join_no_index.csv"
+
+    def one(count):
+        return join_city_state(
             main_table="employees",
             join_table="state_abbrevs",
-            container_name=container_name,
         )
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
+    run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
-    # Join with indexes
-    database_method = "postgres_join_index"
-    create_stats_files(database_method)
-    for i in range(30):
-        set_index(postgres_conn, cursor, use_index=True)
-        join_city_state(
-            postgres_conn,
-            cursor,
-            database_method,
+    # restart_postgres(container_name)
+
+    # # Join with indexes
+    set_index(use_index=True)
+    result_file = "./performance_results/postgres_join_with_index.csv"
+
+    def one(count):
+        return join_city_state(
             main_table="employees",
             join_table="state_abbrevs",
-            container_name=container_name,
         )
 
-    restart_postgres(container_name)
-    postgres_conn, cursor = reconnect_postgres()
+    run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
-    # Delete
-    database_method = "postgres_delete"
-    create_stats_files(database_method)
-    for id in delete_ids:
-        delete_by_id(
-            postgres_conn,
-            cursor,
-            database_method,
+    # restart_postgres(container_name)
+
+    # # Delete
+    result_file = "./performance_results/postgres_delete.csv"
+
+    def one(id):
+        return delete_by_id(
             table_name="employees",
             id=id,
-            container_name=container_name,
         )
+
+    run_parallel(one, delete_ids, Path(result_file), max_workers=8)

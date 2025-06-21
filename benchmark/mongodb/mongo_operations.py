@@ -1,15 +1,14 @@
 from utils import mongo_connection
 from utils import (
-    create_stats_files,
-    save_stats_to_file,
-    get_docker_stats,
-    total_stats,
     convert_csv_to_json_file,
-    load_dataset,
 )
 import time
 import subprocess
 import json
+import csv
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from statistics import mean
+from pathlib import Path
 
 
 def restart_mongodb(container_name):
@@ -24,61 +23,115 @@ def reconnect_mongo():
     return database
 
 
-def insert(collection, database_method, file_path, container_name):
-    with open(file_path, "r", encoding="utf-8") as f:
-        for line in f:
-            insert_row = json.loads(line)
-            stats_before = get_docker_stats(container_name)
-            start = time.perf_counter()
-            collection.insert_one(insert_row)
-            end = time.perf_counter()
-            stats_after = get_docker_stats(container_name)
+def run_parallel(worker_fn, work_items, csv_path: Path, max_workers: int = 16):
 
-            stats = total_stats(
-                collection.name, 1, end, start, stats_before, stats_after
-            )
-            save_stats_to_file(database_method, stats)
+    t0 = time.perf_counter()
+    print(f"Launching {len(work_items)} tasks on {max_workers} workers …")
+
+    rows = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future = {executor.submit(worker_fn, item): item for item in work_items}
+        for fut in as_completed(future):
+            try:
+                rows.append(fut.result())
+            except Exception as exc:
+                print(f"Task {future[fut]} failed: {exc}")
+
+    elapsed = time.perf_counter() - t0
+    print(f"All tasks done in {elapsed:,.2f}s")
+
+    if rows:
+        csv_path.parent.mkdir(exist_ok=True, parents=True)
+        with csv_path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+
+        print(f"Wrote per-operation metrics → {csv_path}")
+
+        avg_rt = mean(r["duration_ms"] for r in rows)
+        print(f"Avg. response time: {avg_rt:.2f} ms across {len(rows)} ops")
 
 
-def get_all_ids(collection):
+def insert(insert_row, table_name):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
+    start = time.perf_counter()
+    collection.insert_one(insert_row)
+    end = time.perf_counter()
+
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": 1,
+    }
+
+
+def get_all_ids(table_name, limit=None):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     result = collection.find({}, {"id"})
-    result = result.limit(90)
+    result = result.limit(limit)
     ids = [doc["id"] for doc in result]
 
     third = len(ids) // 3
     select_ids = ids[:third]
     update_ids = ids[third : 2 * third]
     delete_ids = ids[2 * third :]
+
+    client.close()
+
     return select_ids, update_ids, delete_ids
 
 
-def select_by_id(collection, database_method, id, container_name):
-    stats_before = get_docker_stats(container_name)
+def select_by_id(table_name, id):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     start = time.perf_counter()
     result = list(collection.find({"id": id}))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
-    if result:
-        stats = total_stats(
-            table_name=collection.name,
-            num_inserted=len(result),
-            end=end,
-            start=start,
-            stats_before=stats_before,
-            stats_after=stats_after,
-        )
-        save_stats_to_file(database_method, stats)
+
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": len(result),
+    }
 
 
-def get_cities(collection, limit=None):
+def get_cities(table_name, limit=None):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     cities = collection.distinct("city")
     if limit:
         cities = cities[:limit]
-    print(f"Retrieved {len(cities)} cities")
+
+    client.close()
     return cities
 
 
-def select_filtering(collection, database_method, city, container_name):
+def select_filtering(city, table_name):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     query = {
         "city": city,
         "name_prefix": "Mr.",
@@ -88,52 +141,72 @@ def select_filtering(collection, database_method, city, container_name):
         "year_of_joining": {"$gt": 2000},
     }
 
-    stats_before = get_docker_stats(container_name)
     start = time.perf_counter()
     result = list(collection.find(query))
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    if result:
-        stats = total_stats(
-            collection.name, len(result), end, start, stats_before, stats_after
-        )
-        save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": len(result),
+    }
 
 
-def update_salary_by_id(collection, database_method, id, container_name):
-    stats_before = get_docker_stats(container_name)
+def update_salary_by_id(id, table_name):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     start = time.perf_counter()
     collection.update_one({"id": id}, {"$set": {"salary": 65000}})
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    stats = total_stats(collection.name, 1, end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": None,
+    }
 
 
-def set_index(collection, use_index=True):
+def set_index(table_name, use_index=True):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     if use_index:
         collection.create_index("city", name="idx_employees_city")
-        print("Index created.")
     else:
         try:
             collection.drop_index("idx_employees_city")
-            print("Index dropped.")
         except Exception:
             pass
 
+    client.close()
 
-def join_city_state(database, database_method, container_name):
-    stats_before = get_docker_stats(container_name)
+
+def join_city_state(table_name, join_table):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     start = time.perf_counter()
 
     result = list(
-        database["employees"].aggregate(
+        collection.aggregate(
             [
                 {
                     "$lookup": {
-                        "from": "state_abbrevs",
+                        "from": join_table,
                         "localField": "state",
                         "foreignField": "abbreviation",
                         "as": "state_info",
@@ -146,104 +219,116 @@ def join_city_state(database, database_method, container_name):
     )
 
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    stats = total_stats("employees", len(result), end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": len(result),
+    }
 
 
-def delete_by_id(collection, database_method, id, container_name):
-    stats_before = get_docker_stats(container_name)
+def delete_by_id(id, table_name):
+    client = mongo_connection()
+    database = client["benchmark_mongodb"]
+    collection = database[table_name]
+
     start = time.perf_counter()
     collection.delete_one({"id": id})
     end = time.perf_counter()
-    stats_after = get_docker_stats(container_name)
 
-    stats = total_stats(collection.name, 1, end, start, stats_before, stats_after)
-    save_stats_to_file(database_method, stats)
+    dur_ms = (end - start) * 1_000
+
+    client.close()
+
+    return {
+        "op": "insert",
+        "table": table_name,
+        "duration_ms": round(dur_ms, 3),
+        "rowcount": None,
+    }
 
 
 def execute_op_mongodb(container_name):
-    client = mongo_connection()
-    database = client["benchmark_mongodb"]
-    collection = database["employees"]
-
     # Insert
-    insert_path = "./datasets/insert"
-    database_method = "mongodb_insert_rows"
-    create_stats_files(database_method)
+    insert_path = "./datasets/insert/employees.csv"
+    json_path = convert_csv_to_json_file(insert_path)
+    result_file = "./performance_results/mongo_insert_rows.csv"
 
-    file_path = insert_path + "/employees.csv"
-    json_path = convert_csv_to_json_file(file_path)
-    insert(
-        collection,
-        database_method,
-        file_path=json_path,
-        container_name=container_name,
-    )
+    with open(json_path, encoding="utf-8") as f:
+        work = [json.loads(line) for _, line in zip(range(1000), f) if line.strip()]
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    def one(row):
+        return insert(row, table_name="employees")
+
+    run_parallel(one, work, Path(result_file), max_workers=8)
+
+    # restart_mongodb(container_name)
 
     # Get sample IDs
-    select_ids, update_ids, delete_ids = get_all_ids(collection)
+    select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
 
     # Select by ID
-    database_method = "mongodb_select"
-    create_stats_files(database_method)
-    for id in select_ids:
-        select_by_id(collection, database_method, id, container_name)
+    result_file = "./performance_results/mongo_select.csv"
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    def one(id):
+        return select_by_id(table_name="employees", id=id)
 
-    # Filtered select
-    cities = get_cities(collection, limit=30)
-    database_method = "mongodb_filter"
-    create_stats_files(database_method)
-    for city in cities:
-        select_filtering(collection, database_method, city, container_name)
+    run_parallel(one, select_ids, Path(result_file), max_workers=8)
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    # restart_mongodb(container_name)
+
+    # # Filtered select
+    cities = get_cities(table_name="employees", limit=1000)
+
+    result_file = "./performance_results/mongo_select_filter.csv"
+
+    def one(city):
+        return select_filtering(city, table_name="employees")
+
+    run_parallel(one, cities, Path(result_file), max_workers=8)
+
+    # restart_mongodb(container_name)
 
     # Update
-    database_method = "mongodb_update"
-    create_stats_files(database_method)
-    for id in update_ids:
-        update_salary_by_id(collection, database_method, id, container_name)
+    result_file = "./performance_results/mongo_update.csv"
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    def one(id):
+        return update_salary_by_id(id, table_name="employees")
+
+    run_parallel(one, update_ids, Path(result_file), max_workers=8)
+
+    # restart_mongodb(container_name)
 
     # Join without index
-    set_index(collection, use_index=False)
-    database_method = "mongodb_join_no_index"
-    create_stats_files(database_method)
-    for _ in range(30):
-        join_city_state(database, database_method, container_name)
+    set_index(table_name="employees", use_index=False)
+    result_file = "./performance_results/mongo_join_no_index.csv"
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    def one(int):
+        return join_city_state(table_name="employees", join_table="state_abbrevs")
+
+    run_parallel(one, range(1000), Path(result_file), max_workers=2)
+    # restart_mongodb(container_name)
 
     # Join with index
-    set_index(collection, use_index=True)
-    database_method = "mongodb_join_index"
-    create_stats_files(database_method)
-    for _ in range(30):
-        join_city_state(database, database_method, container_name)
+    set_index(table_name="employees", use_index=False)
+    result_file = "./performance_results/mongo_join_with_index.csv"
 
-    restart_mongodb(container_name)
-    database = reconnect_mongo()
-    collection = database["employees"]
+    def one(int):
+        return join_city_state(table_name="employees", join_table="state_abbrevs")
+
+    run_parallel(one, range(1000), Path(result_file), max_workers=4)
+
+    # restart_mongodb(container_name)
 
     # Delete
-    database_method = "mongodb_delete"
-    create_stats_files(database_method)
-    for id in delete_ids:
-        delete_by_id(collection, database_method, id, container_name)
+    result_file = "./performance_results/mongo_join_with_index.csv"
+
+    def one(id):
+        return delete_by_id(id, table_name="employees")
+
+    run_parallel(one, delete_ids, Path(result_file), max_workers=4)
