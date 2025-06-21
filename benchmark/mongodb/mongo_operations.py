@@ -267,7 +267,7 @@ def execute_op_mongodb(container_name):
 
     run_parallel(one, work, Path(result_file), max_workers=8)
 
-    # restart_mongodb(container_name)
+    restart_mongodb(container_name)
 
     # Get sample IDs
     select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
@@ -280,7 +280,7 @@ def execute_op_mongodb(container_name):
 
     run_parallel(one, select_ids, Path(result_file), max_workers=8)
 
-    # restart_mongodb(container_name)
+    restart_mongodb(container_name)
 
     # # Filtered select
     cities = get_cities(table_name="employees", limit=1000)
@@ -292,7 +292,7 @@ def execute_op_mongodb(container_name):
 
     run_parallel(one, cities, Path(result_file), max_workers=8)
 
-    # restart_mongodb(container_name)
+    restart_mongodb(container_name)
 
     # Update
     result_file = "./performance_results/mongo_update.csv"
@@ -302,7 +302,7 @@ def execute_op_mongodb(container_name):
 
     run_parallel(one, update_ids, Path(result_file), max_workers=8)
 
-    # restart_mongodb(container_name)
+    restart_mongodb(container_name)
 
     # Join without index
     set_index(table_name="employees", use_index=False)
@@ -312,7 +312,8 @@ def execute_op_mongodb(container_name):
         return join_city_state(table_name="employees", join_table="state_abbrevs")
 
     run_parallel(one, range(1000), Path(result_file), max_workers=2)
-    # restart_mongodb(container_name)
+
+    restart_mongodb(container_name)
 
     # Join with index
     set_index(table_name="employees", use_index=False)
@@ -323,7 +324,7 @@ def execute_op_mongodb(container_name):
 
     run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
-    # restart_mongodb(container_name)
+    restart_mongodb(container_name)
 
     # Delete
     result_file = "./performance_results/mongo_join_with_index.csv"

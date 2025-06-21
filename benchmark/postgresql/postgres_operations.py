@@ -304,7 +304,7 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, work, Path(result_file), max_workers=8)
 
-    # restart_postgres(container_name)
+    restart_postgres(container_name)
 
     # Get 3000 ids from the table
     select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
@@ -320,6 +320,8 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, select_ids, Path(result_file), max_workers=8)
 
+    restart_postgres(container_name)
+    
     # Get 1000 cities from the table
     list_cities = get_cities(table_name="employees", limit=1000)
 
@@ -334,7 +336,7 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, list_cities, Path(result_file), max_workers=8)
 
-    # restart_postgres(container_name)
+    restart_postgres(container_name)
 
     # Update
     result_file = "./performance_results/postgres_update.csv"
@@ -347,7 +349,7 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, update_ids, Path(result_file), max_workers=8)
 
-    # restart_postgres(container_name)
+    restart_postgres(container_name)
 
     # Join without indexes
     set_index(use_index=False)
@@ -361,9 +363,9 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
-    # restart_postgres(container_name)
+    restart_postgres(container_name)
 
-    # # Join with indexes
+    # Join with indexes
     set_index(use_index=True)
     result_file = "./performance_results/postgres_join_with_index.csv"
 
@@ -375,9 +377,9 @@ def execute_op_postgres(container_name):
 
     run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
-    # restart_postgres(container_name)
+    restart_postgres(container_name)
 
-    # # Delete
+    # Delete
     result_file = "./performance_results/postgres_delete.csv"
 
     def one(id):
