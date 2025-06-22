@@ -178,16 +178,19 @@ def update_salary_by_id(id, table_name):
     }
 
 
-def set_index(table_name, use_index=True):
+def set_index(table_name, join_table, use_index=True):
     client = mongo_connection()
     database = client["benchmark_mongodb"]
     collection = database[table_name]
+    collection_join = database[join_table]
 
     if use_index:
-        collection.create_index("city", name="idx_employees_city")
+        collection.create_index("state", name="idx_employees_city")
+        collection_join.create_index("state", name="idx_state_abbrevs")
     else:
         try:
             collection.drop_index("idx_employees_city")
+            collection_join.drop_index("idx_state_abbrevs")
         except Exception:
             pass
 
@@ -305,7 +308,7 @@ def execute_op_mongodb(container_name):
     restart_mongodb(container_name)
 
     # Join without index
-    set_index(table_name="employees", use_index=False)
+    set_index(table_name="employees", join_table="state_abbrevs", use_index=False)
     result_file = "./performance_results/mongo_join_no_index.csv"
 
     def one(int):
@@ -316,7 +319,7 @@ def execute_op_mongodb(container_name):
     restart_mongodb(container_name)
 
     # Join with index
-    set_index(table_name="employees", use_index=False)
+    set_index(table_name="employees", join_table="state_abbrevs", use_index=False)
     result_file = "./performance_results/mongo_join_with_index.csv"
 
     def one(int):

@@ -42,7 +42,7 @@ def run_parallel(worker_fn, work_items, csv_path: Path, max_workers: int = 16):
             try:
                 rows.append(fut.result())
             except Exception as exc:
-                print(f"‼️ task {future[fut]} crashed: {exc}")
+                print(f"Task {future[fut]} failed: {exc}")
 
     elapsed = time.perf_counter() - t0
     print(f"All tasks done in {elapsed:,.2f}s")
@@ -250,14 +250,14 @@ def set_index(use_index=True):
     if use_index:
         statements = [
             "DROP INDEX IF EXISTS idx_employees_city;",
-            "DROP INDEX IF EXISTS idx_us_cities_city;",
-            "CREATE INDEX idx_employees_city ON employees(city);",
-            "CREATE INDEX idx_us_cities_city ON us_cities_states_counties(city);",
+            "DROP INDEX IF EXISTS idx_state_abbrevs;",
+            "CREATE INDEX idx_employees_city ON employees(state);",
+            "CREATE INDEX idx_state_abbrevs ON state_abbrevs(state);",
         ]
     else:
         statements = [
             "DROP INDEX IF EXISTS idx_employees_city;",
-            "DROP INDEX IF EXISTS idx_us_cities_city;",
+            "DROP INDEX IF EXISTS idx_state_abbrevs;",
         ]
 
     for statement in statements:
@@ -321,7 +321,7 @@ def execute_op_postgres(container_name):
     run_parallel(one, select_ids, Path(result_file), max_workers=8)
 
     restart_postgres(container_name)
-    
+
     # Get 1000 cities from the table
     list_cities = get_cities(table_name="employees", limit=1000)
 
