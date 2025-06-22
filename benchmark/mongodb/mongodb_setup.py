@@ -55,4 +55,4 @@ def mongodb_setup_db(conn, file_path, table_name, container_name):
     json_path = convert_csv_to_json_file(file_path)
     mongo_stats = insert_documents(table_name, collection, json_path, container_name)
 
-    save_stats_to_file(database_method="mongo_insert", results_stats=mongo_stats)
+    save_stats_to_file(database_method="mongodb", results_stats=mongo_stats)

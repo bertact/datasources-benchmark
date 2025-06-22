@@ -77,4 +77,4 @@ def postgresql_setup_db(conn, file_path, table_name, container_name):
     create_table(conn, table_name, file_path)
     postgres_stats = insert_data(conn, table_name, file_path, container_name)
 
-    save_stats_to_file(database_method="postgres_insert", results_stats=postgres_stats)
+    save_stats_to_file(database_method="postgres", results_stats=postgres_stats)

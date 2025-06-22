@@ -124,7 +124,9 @@ def total_stats(table_name, num_inserted, end, start, stats_before, stats_after)
 
 
 def create_stats_files(database_method):
-    with open(f"results/{database_method}_performance.csv", "w", newline="") as f:
+    with open(
+        f"performance_results/{database_method}/dataset_insert_performance.csv", "w", newline=""
+    ) as f:
         writer = csv.writer(f)
         writer.writerow(
             [
@@ -140,6 +142,8 @@ def create_stats_files(database_method):
 
 
 def save_stats_to_file(database_method, results_stats):
-    with open(f"results/{database_method}_performance.csv", "a", newline="") as f:
+    with open(
+        f"performance_results/{database_method}/dataset_insert_performance.csv", "a", newline=""
+    ) as f:
         writer = csv.DictWriter(f, fieldnames=results_stats.keys())
         writer.writerow(results_stats)

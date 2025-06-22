@@ -294,7 +294,7 @@ def delete_by_id(table_name, id):
 def execute_op_postgres(container_name):
     # Insert
     insert_path = "./datasets/insert/employees.csv"
-    result_file = "./performance_results/postgres_insert_rows.csv"
+    result_file = "./performance_results/postgres/postgres_insert_rows.csv"
 
     with open(insert_path, newline="", encoding="utf-8") as f:
         work = [row for _, row in zip(range(1000), csv.DictReader(f))]
@@ -310,7 +310,7 @@ def execute_op_postgres(container_name):
     select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
 
     # Select
-    result_file = "./performance_results/postgres_select.csv"
+    result_file = "./performance_results/postgres/postgres_select.csv"
 
     def one(id):
         return select_by_id(
@@ -326,7 +326,7 @@ def execute_op_postgres(container_name):
     list_cities = get_cities(table_name="employees", limit=1000)
 
     # Select filtering
-    result_file = "./performance_results/postgres_select_filtering.csv"
+    result_file = "./performance_results/postgres/postgres_select_filtering.csv"
 
     def one(city):
         return select_filtering(
@@ -339,7 +339,7 @@ def execute_op_postgres(container_name):
     restart_postgres(container_name)
 
     # Update
-    result_file = "./performance_results/postgres_update.csv"
+    result_file = "./performance_results/postgres/postgres_update.csv"
 
     def one(id):
         return update_salary_by_id(
@@ -353,7 +353,7 @@ def execute_op_postgres(container_name):
 
     # Join without indexes
     set_index(use_index=False)
-    result_file = "./performance_results/postgres_join_no_index.csv"
+    result_file = "./performance_results/postgres/postgres_join_no_index.csv"
 
     def one(count):
         return join_city_state(
@@ -367,7 +367,7 @@ def execute_op_postgres(container_name):
 
     # Join with indexes
     set_index(use_index=True)
-    result_file = "./performance_results/postgres_join_with_index.csv"
+    result_file = "./performance_results/postgres/postgres_join_with_index.csv"
 
     def one(count):
         return join_city_state(
@@ -380,7 +380,7 @@ def execute_op_postgres(container_name):
     restart_postgres(container_name)
 
     # Delete
-    result_file = "./performance_results/postgres_delete.csv"
+    result_file = "./performance_results/postgres/postgres_delete.csv"
 
     def one(id):
         return delete_by_id(

@@ -17,8 +17,8 @@ def main():
     datasets_path = "./datasets/csv"
 
     # Create files
-    for database in ["postgres", "mongo"]:
-        create_stats_files(database_method=f"{database}_insert")
+    for database in ["postgres", "mongodb"]:
+        create_stats_files(database_method=f"{database}")
 
     for dataset in os.listdir(datasets_path):
         file_path, table_name = load_dataset(dataset, datasets_path)

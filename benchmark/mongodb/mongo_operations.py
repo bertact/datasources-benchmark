@@ -260,7 +260,7 @@ def execute_op_mongodb(container_name):
     # Insert
     insert_path = "./datasets/insert/employees.csv"
     json_path = convert_csv_to_json_file(insert_path)
-    result_file = "./performance_results/mongo_insert_rows.csv"
+    result_file = "./performance_results/mongodb/mongo_insert_rows.csv"
 
     with open(json_path, encoding="utf-8") as f:
         work = [json.loads(line) for _, line in zip(range(1000), f) if line.strip()]
@@ -276,7 +276,7 @@ def execute_op_mongodb(container_name):
     select_ids, update_ids, delete_ids = get_all_ids(table_name="employees", limit=3000)
 
     # Select by ID
-    result_file = "./performance_results/mongo_select.csv"
+    result_file = "./performance_results/mongodb/mongo_select.csv"
 
     def one(id):
         return select_by_id(table_name="employees", id=id)
@@ -288,7 +288,7 @@ def execute_op_mongodb(container_name):
     # # Filtered select
     cities = get_cities(table_name="employees", limit=1000)
 
-    result_file = "./performance_results/mongo_select_filter.csv"
+    result_file = "./performance_results/mongodb/mongo_select_filter.csv"
 
     def one(city):
         return select_filtering(city, table_name="employees")
@@ -298,7 +298,7 @@ def execute_op_mongodb(container_name):
     restart_mongodb(container_name)
 
     # Update
-    result_file = "./performance_results/mongo_update.csv"
+    result_file = "./performance_results/mongodb/mongo_update.csv"
 
     def one(id):
         return update_salary_by_id(id, table_name="employees")
@@ -309,7 +309,7 @@ def execute_op_mongodb(container_name):
 
     # Join without index
     set_index(table_name="employees", join_table="state_abbrevs", use_index=False)
-    result_file = "./performance_results/mongo_join_no_index.csv"
+    result_file = "./performance_results/mongodb/mongo_join_no_index.csv"
 
     def one(int):
         return join_city_state(table_name="employees", join_table="state_abbrevs")
@@ -320,7 +320,7 @@ def execute_op_mongodb(container_name):
 
     # Join with index
     set_index(table_name="employees", join_table="state_abbrevs", use_index=False)
-    result_file = "./performance_results/mongo_join_with_index.csv"
+    result_file = "./performance_results/mongodb/mongo_join_with_index.csv"
 
     def one(int):
         return join_city_state(table_name="employees", join_table="state_abbrevs")
@@ -330,7 +330,7 @@ def execute_op_mongodb(container_name):
     restart_mongodb(container_name)
 
     # Delete
-    result_file = "./performance_results/mongo_join_with_index.csv"
+    result_file = "./performance_results/mongodb/mongo_join_with_index.csv"
 
     def one(id):
         return delete_by_id(id, table_name="employees")
