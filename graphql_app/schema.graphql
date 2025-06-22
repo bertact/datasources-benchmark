@@ -1,12 +1,67 @@
 type Employee {
-  emp_id: Int!
-  name: String
-  salary: Int!
+  id: Int!
+  name_prefix: String
+  first_name: String
+  middle_initial: String
+  last_name: String
+  gender: String
+  email: String
+  father_name: String
+  mother_name: String
+  mother_maiden_name: String
+  date_birth: String
+  time_birth: String
+  age_in_yrs: Float
+  weight_in_kgs: Int
+  date_of_joining: String
+  quarter_of_joining: String
+  half_of_joining: String
+  year_of_joining: Int
+  month_of_joining: Int
+  month_name_of_joining: String
+  short_month: String
+  day_of_joining: Int
+  DOW_of_joining: String
+  short_DOW: String
+  age_in_company: Float
+  salary: Int
+  last_hike: String
+  SSN: String
+  phone: String
+  place_name: String
+  county: String
   city: String
-  dpt_id: Int!
-  prj_id: Int!
+  state: String
+  zip: Int
+  region: String
+  user_name: String
+  password: String
+}
+
+type StateAbbreviation {
+  state: String!
+  abbreviation: String!
 }
 
 type Query {
-  employeeById(emp_id: Int!): Employee
+  selectById(container: String!, table: String!, id: Int!): Boolean
+  selectFiltering(container: String!, table: String!, city: String!): Boolean
+  joinCityState(
+    container: String!
+    main_table: String!
+    join_table: String!
+  ): Boolean
+  getAllIds(container: String!, table: String!, limit: Int): [Int!]!
+  getCities(container: String!, table: String!, limit: Int): [String!]!
+}
+
+type Mutation {
+  updateSalaryById(container: String!, table: String!, id: Int!): Boolean
+  deleteById(container: String!, table: String!, id: Int!): Boolean
+  insertData(
+    container: String!
+    table: String!
+    columns: [String!]
+    values: [String!]!
+  ): Boolean
 }
