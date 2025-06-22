@@ -381,7 +381,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(20), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
 
     # Join with index
     if container == "postgres":
@@ -396,7 +396,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(20), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
 
     # Delete
     result_file = f"./performance_results/graphql/graphql_{container}_delete.csv"

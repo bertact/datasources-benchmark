@@ -3,3 +3,5 @@ pymongo
 requests
 pandas
 docker
+matplotlib
+seaborn
