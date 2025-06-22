@@ -150,6 +150,7 @@ def insert(url, container, row, table_name="employees"):
     response = requests.post(url, json={"query": mutation, "variables": variables})
     end = time.perf_counter()
 
+
     duration_ms = (end - start) * 1000
 
     if response.status_code != 200:
@@ -329,7 +330,7 @@ def execute_op_graphql(container):
         if container == "postgres"
         else "./datasets/insert/employees.json"
     )
-    result_file = f"./performance_results/graphql/{container}_insert_rows.csv"
+    result_file = f"./performance_results/graphql/graphql_{container}_insert_rows.csv"
 
     with open(insert_path, newline="", encoding="utf-8") as f:
         work = [row for _, row in zip(range(1000), csv.DictReader(f))]
@@ -377,10 +378,10 @@ def execute_op_graphql(container):
 
     result_file = f"./performance_results/graphql/graphql_{container}_join_no_index.csv"
 
-    def one(url):
+    def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=8)
+    run_parallel(one, range(20), url, Path(result_file), max_workers=6)
 
     # Join with index
     if container == "postgres":
@@ -392,10 +393,10 @@ def execute_op_graphql(container):
         f"./performance_results/graphql/graphql_{container}_join_with_index.csv"
     )
 
-    def one(url):
+    def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=8)
+    run_parallel(one, range(20), url, Path(result_file), max_workers=6)
 
     # Delete
     result_file = f"./performance_results/graphql/graphql_{container}_delete.csv"

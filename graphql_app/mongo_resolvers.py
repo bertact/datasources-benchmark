@@ -19,7 +19,7 @@ def resolve_select_by_id(_, info, table, id):
         doc = collection.find_one({"id": id})
         if doc:
             doc["_id"] = str(doc["_id"])
-        return len(doc) > 0
+        return True
     except Exception as e:
         print(f"Error: {e}")
         return False
@@ -38,7 +38,7 @@ def resolve_select_filtering(_, info, table, city):
         results = list(collection.find(filter_query))
         for doc in results:
             doc["_id"] = str(doc["_id"])
-        return len(results) > 0
+        return True
     except Exception as e:
         print(f"Error: {e}")
         return False
@@ -90,7 +90,7 @@ def resolve_join_city_state(_, info, table_name, join_table):
 
         for doc in result:
             doc["_id"] = str(doc["_id"])
-        return len(result) > 0
+        return True
     except Exception as e:
         print(f"Error: {e}")
         return False
@@ -99,8 +99,8 @@ def resolve_join_city_state(_, info, table_name, join_table):
 def resolve_insert_data(_, info, table, columns, values):
     try:
         doc = dict(zip(columns, values))
-        result = collection.insert_one(doc)
-        return len(result) > 0
+        collection.insert_one(doc)
+        return True
     except Exception as e:
         print(f"Error: {e}")
         return False
@@ -108,10 +108,10 @@ def resolve_insert_data(_, info, table, columns, values):
 
 def resolve_get_all_ids(_, info, table, limit=None):
     try:
-        cursor = collection.find({}, {"id": 1}).sort("id", 1)
+        result = collection.find({}, {"id"})
         if limit:
-            cursor = cursor.limit(limit)
-        ids = [doc["id"] for doc in cursor]
+            result = result.limit(limit)
+        ids = [doc["id"] for doc in result]
         return ids
 
     except Exception as e:

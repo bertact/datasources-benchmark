@@ -80,7 +80,8 @@ def get_all_ids(table_name, limit=None):
     collection = database[table_name]
 
     result = collection.find({}, {"id"})
-    result = result.limit(limit)
+    if limit:
+        result = result.limit(limit)
     ids = [doc["id"] for doc in result]
 
     third = len(ids) // 3
