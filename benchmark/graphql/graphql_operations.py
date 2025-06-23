@@ -5,6 +5,30 @@ from pathlib import Path
 from statistics import mean
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import postgres_connection, mongo_connection
+import subprocess
+
+
+def restart_mongodb(container_name):
+    print(f"Restarting container {container_name} to clear cache")
+    subprocess.run(["docker", "restart", container_name])
+    time.sleep(5)
+
+
+def wait_for_postgres(container_name):
+    while True:
+        result = subprocess.run(
+            ["docker", "exec", container_name, "pg_isready"],
+            capture_output=True,
+        )
+        if b"accepting connections" in result.stdout:
+            break
+        time.sleep(1)
+
+
+def restart_postgres(container_name):
+    print(f"Restarting container {container_name} to clear cache")
+    subprocess.run(["docker", "restart", container_name])
+    wait_for_postgres(container_name)
 
 
 def run_parallel(worker_fn, work_items, url, csv_path, max_workers=8):
@@ -150,7 +174,6 @@ def insert(url, container, row, table_name="employees"):
     response = requests.post(url, json={"query": mutation, "variables": variables})
     end = time.perf_counter()
 
-
     duration_ms = (end - start) * 1000
 
     if response.status_code != 200:
@@ -258,9 +281,7 @@ def update_by_id(url, id, container, table_name="employees"):
         }
 
 
-def join_city_state(
-    url, container, main_table="employees", join_table="state_abbreviations"
-):
+def join_city_state(url, container, main_table="employees", join_table="state_abbrevs"):
     query = """
     query($container: String!, $main_table: String!, $join_table: String!) {
       joinCityState(container: $container, main_table: $main_table, join_table: $join_table)
@@ -324,6 +345,18 @@ def delete_by_id(url, id, container, table_name="employees"):
 def execute_op_graphql(container):
     url = "http://graphql-api:8000/graphql"
 
+    if container == "postgres":
+        container_name = "datasources-benchmark-postgresql-db-1"
+
+        def restart_container():
+            return restart_mongodb(container_name)
+
+    elif container == "mongodb":
+        container_name = "datasources-benchmark-mongo-db-1"
+
+        def restart_container():
+            return restart_postgres(container_name)
+
     # Insert
     insert_path = (
         "./datasets/insert/employees.csv"
@@ -340,8 +373,12 @@ def execute_op_graphql(container):
 
     run_parallel(one, work, url, Path(result_file), max_workers=8)
 
+    restart_container()
+
     # Get ids
     selectIds, updateIds, deleteIds = get_all_ids(url, container)
+
+    restart_container()
 
     # Select
     result_file = f"./performance_results/graphql/graphql_{container}_select.csv"
@@ -351,8 +388,12 @@ def execute_op_graphql(container):
 
     run_parallel(one, selectIds, url, Path(result_file), max_workers=8)
 
+    restart_container()
+
     # Get cities
     cities = get_cities(url, container)
+
+    restart_container()
 
     # Select filtering
     result_file = f"./performance_results/graphql/graphql_{container}_select_filter.csv"
@@ -362,6 +403,8 @@ def execute_op_graphql(container):
 
     run_parallel(one, cities, url, Path(result_file), max_workers=8)
 
+    restart_container()
+
     # Update
     result_file = f"./performance_results/graphql/graphql_{container}_update.csv"
 
@@ -369,6 +412,8 @@ def execute_op_graphql(container):
         return update_by_id(url, id, container)
 
     run_parallel(one, updateIds, url, Path(result_file), max_workers=8)
+
+    restart_container()
 
     # Join no index
     if container == "postgres":
@@ -381,7 +426,9 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(2), url, Path(result_file), max_workers=6)
+
+    restart_container()
 
     # Join with index
     if container == "postgres":
@@ -396,7 +443,9 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(2), url, Path(result_file), max_workers=6)
+
+    restart_container()
 
     # Delete
     result_file = f"./performance_results/graphql/graphql_{container}_delete.csv"
@@ -405,3 +454,5 @@ def execute_op_graphql(container):
         return delete_by_id(url, id, container)
 
     run_parallel(delete_worker, deleteIds, url, Path(result_file), max_workers=8)
+
+    restart_container()
