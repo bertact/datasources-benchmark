@@ -426,7 +426,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(2), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
 
     restart_container()
 
@@ -443,7 +443,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(2), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
 
     restart_container()
 
