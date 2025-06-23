@@ -108,7 +108,7 @@ def select_by_id(table_name, id):
     client.close()
 
     return {
-        "op": "insert",
+        "op": "select",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": len(result),
@@ -151,7 +151,7 @@ def select_filtering(city, table_name):
     client.close()
 
     return {
-        "op": "insert",
+        "op": "select_filtering",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": len(result),
@@ -172,7 +172,7 @@ def update_salary_by_id(id, table_name):
     client.close()
 
     return {
-        "op": "insert",
+        "op": "update",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": None,
@@ -229,7 +229,7 @@ def join_city_state(table_name, join_table):
     client.close()
 
     return {
-        "op": "insert",
+        "op": "join",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": len(result),
@@ -250,7 +250,7 @@ def delete_by_id(id, table_name):
     client.close()
 
     return {
-        "op": "insert",
+        "op": "delete",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": None,

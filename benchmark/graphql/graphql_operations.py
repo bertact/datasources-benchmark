@@ -349,13 +349,13 @@ def execute_op_graphql(container):
         container_name = "datasources-benchmark-postgresql-db-1"
 
         def restart_container():
-            return restart_mongodb(container_name)
+            return restart_postgres(container_name)
 
     elif container == "mongodb":
         container_name = "datasources-benchmark-mongo-db-1"
 
         def restart_container():
-            return restart_postgres(container_name)
+            return restart_mongodb(container_name)
 
     # Insert
     insert_path = (

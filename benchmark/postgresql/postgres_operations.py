@@ -152,7 +152,7 @@ def select_by_id(table_name, id):
     postgres_conn.close()
 
     return {
-        "op": "insert",
+        "op": "select",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": cursor.rowcount,
@@ -184,7 +184,7 @@ def select_filtering(table_name, city):
     postgres_conn.close()
 
     return {
-        "op": "insert",
+        "op": "select_filtering",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": cursor.rowcount,
@@ -208,7 +208,7 @@ def update_salary_by_id(table_name, id):
     postgres_conn.close()
 
     return {
-        "op": "insert",
+        "op": "update",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": cursor.rowcount,
@@ -237,7 +237,7 @@ def join_city_state(main_table, join_table):
     postgres_conn.close()
 
     return {
-        "op": "insert",
+        "op": "join",
         "table": main_table,
         "duration_ms": round(dur_ms, 3),
         "rowcount": cursor.rowcount,
@@ -284,7 +284,7 @@ def delete_by_id(table_name, id):
     postgres_conn.close()
 
     return {
-        "op": "insert",
+        "op": "delete",
         "table": table_name,
         "duration_ms": round(dur_ms, 3),
         "rowcount": cursor.rowcount,
