@@ -326,7 +326,7 @@ def execute_op_postgres(container_name):
     list_cities = get_cities(table_name="employees", limit=1000)
 
     # Select filtering
-    result_file = "./performance_results/postgres/postgres_select_filtering.csv"
+    result_file = "./performance_results/postgres/postgres_select_filter.csv"
 
     def one(city):
         return select_filtering(

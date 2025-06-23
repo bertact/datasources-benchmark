@@ -114,10 +114,10 @@ def resolve_join_city_state(_, info, main_table, join_table):
         ).format(sql.Identifier(main_table), sql.Identifier(join_table))
 
         cur.execute(query)
-        result = cur.fetchall()
+        cur.fetchall()
         conn.commit()
 
-        return len(result) > 0
+        return True
     except Exception as e:
         print(f"Error: {e}")
         return False
