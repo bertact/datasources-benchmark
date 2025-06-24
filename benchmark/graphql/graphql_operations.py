@@ -31,7 +31,7 @@ def restart_postgres(container_name):
     wait_for_postgres(container_name)
 
 
-def run_parallel(worker_fn, work_items, url, csv_path, max_workers=8):
+def run_parallel(worker_fn, work_items, url, csv_path, max_workers=4):
     t0 = time.perf_counter()
     print(f"Launching {len(work_items)} GraphQL ID queries with {max_workers} workers…")
 
@@ -115,14 +115,14 @@ def postgres_set_index(use_index=True):
 
     if use_index:
         statements = [
-            "DROP INDEX IF EXISTS idx_employees_city;",
+            # "DROP INDEX IF EXISTS idx_employees_city;",
             "DROP INDEX IF EXISTS idx_state_abbrevs;",
-            "CREATE INDEX idx_employees_city ON employees(state);",
-            "CREATE INDEX idx_state_abbrevs ON state_abbrevs(state);",
+            # "CREATE INDEX idx_employees_city ON employees(state);",
+            "CREATE INDEX idx_state_abbrevs ON state_abbrevs(abbreviation);",
         ]
     else:
         statements = [
-            "DROP INDEX IF EXISTS idx_employees_city;",
+            # "DROP INDEX IF EXISTS idx_employees_city;",
             "DROP INDEX IF EXISTS idx_state_abbrevs;",
         ]
 
@@ -142,8 +142,8 @@ def mongo_set_index(table_name="employees", join_table="state_abbrevs", use_inde
     collection_join = database[join_table]
 
     if use_index:
-        collection.create_index("state", name="idx_employees_city")
-        collection_join.create_index("state", name="idx_state_abbrevs")
+        # collection.create_index("state", name="idx_employees_city")
+        collection_join.create_index("abbreviation", name="idx_state_abbrevs")
     else:
         try:
             collection.drop_index("idx_employees_city")
@@ -371,7 +371,7 @@ def execute_op_graphql(container):
     def one(url, row):
         return insert(url, container, row)
 
-    run_parallel(one, work, url, Path(result_file), max_workers=8)
+    run_parallel(one, work, url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -386,7 +386,7 @@ def execute_op_graphql(container):
     def one(url, id):
         return select_by_id(url, id, container)
 
-    run_parallel(one, selectIds, url, Path(result_file), max_workers=8)
+    run_parallel(one, selectIds, url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -401,7 +401,7 @@ def execute_op_graphql(container):
     def one(url, city):
         return select_filtering_by_city(url, container, city)
 
-    run_parallel(one, cities, url, Path(result_file), max_workers=8)
+    run_parallel(one, cities, url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -411,7 +411,7 @@ def execute_op_graphql(container):
     def one(url, id):
         return update_by_id(url, id, container)
 
-    run_parallel(one, updateIds, url, Path(result_file), max_workers=8)
+    run_parallel(one, updateIds, url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -426,7 +426,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -443,7 +443,7 @@ def execute_op_graphql(container):
     def one(url, _):
         return join_city_state(url, container)
 
-    run_parallel(one, range(1000), url, Path(result_file), max_workers=6)
+    run_parallel(one, range(1000), url, Path(result_file), max_workers=4)
 
     restart_container()
 
@@ -453,6 +453,6 @@ def execute_op_graphql(container):
     def delete_worker(url, id):
         return delete_by_id(url, id, container)
 
-    run_parallel(delete_worker, deleteIds, url, Path(result_file), max_workers=8)
+    run_parallel(delete_worker, deleteIds, url, Path(result_file), max_workers=4)
 
     restart_container()

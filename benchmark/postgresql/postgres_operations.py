@@ -30,7 +30,7 @@ def reconnect_postgres():
     return conn, conn.cursor()
 
 
-def run_parallel(worker_fn, work_items, csv_path: Path, max_workers: int = 16):
+def run_parallel(worker_fn, work_items, csv_path, max_workers=4):
 
     t0 = time.perf_counter()
     print(f"Launching {len(work_items)} tasks on {max_workers} workers …")
@@ -249,14 +249,14 @@ def set_index(use_index=True):
 
     if use_index:
         statements = [
-            "DROP INDEX IF EXISTS idx_employees_city;",
+            # "DROP INDEX IF EXISTS idx_employees_city;",
             "DROP INDEX IF EXISTS idx_state_abbrevs;",
-            "CREATE INDEX idx_employees_city ON employees(state);",
-            "CREATE INDEX idx_state_abbrevs ON state_abbrevs(state);",
+            # "CREATE INDEX idx_employees_city ON employees(state);",
+            "CREATE INDEX idx_state_abbrevs ON state_abbrevs(abbreviation);",
         ]
     else:
         statements = [
-            "DROP INDEX IF EXISTS idx_employees_city;",
+            # "DROP INDEX IF EXISTS idx_employees_city;",
             "DROP INDEX IF EXISTS idx_state_abbrevs;",
         ]
 
@@ -302,7 +302,7 @@ def execute_op_postgres(container_name):
     def one(row):
         return insert(row, table_name="employees")
 
-    run_parallel(one, work, Path(result_file), max_workers=8)
+    run_parallel(one, work, Path(result_file),  max_workers=4)
 
     restart_postgres(container_name)
 
@@ -318,7 +318,7 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, select_ids, Path(result_file), max_workers=8)
+    run_parallel(one, select_ids, Path(result_file),  max_workers=4)
 
     restart_postgres(container_name)
 
@@ -334,7 +334,7 @@ def execute_op_postgres(container_name):
             city=city,
         )
 
-    run_parallel(one, list_cities, Path(result_file), max_workers=8)
+    run_parallel(one, list_cities, Path(result_file),  max_workers=4)
 
     restart_postgres(container_name)
 
@@ -347,7 +347,7 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, update_ids, Path(result_file), max_workers=8)
+    run_parallel(one, update_ids, Path(result_file),  max_workers=4)
 
     restart_postgres(container_name)
 
@@ -388,4 +388,4 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, delete_ids, Path(result_file), max_workers=8)
+    run_parallel(one, delete_ids, Path(result_file),  max_workers=4)

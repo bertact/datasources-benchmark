@@ -23,7 +23,7 @@ def reconnect_mongo():
     return database
 
 
-def run_parallel(worker_fn, work_items, csv_path: Path, max_workers: int = 16):
+def run_parallel(worker_fn, work_items, csv_path, max_workers=8):
 
     t0 = time.perf_counter()
     print(f"Launching {len(work_items)} tasks on {max_workers} workers …")
@@ -186,8 +186,8 @@ def set_index(table_name, join_table, use_index=True):
     collection_join = database[join_table]
 
     if use_index:
-        collection.create_index("state", name="idx_employees_city")
-        collection_join.create_index("state", name="idx_state_abbrevs")
+        # collection.create_index("state", name="idx_employees_city")
+        collection_join.create_index("abbreviation", name="idx_state_abbrevs")
     else:
         try:
             collection.drop_index("idx_employees_city")
@@ -269,7 +269,7 @@ def execute_op_mongodb(container_name):
     def one(row):
         return insert(row, table_name="employees")
 
-    run_parallel(one, work, Path(result_file), max_workers=8)
+    run_parallel(one, work, Path(result_file), max_workers=4)
 
     restart_mongodb(container_name)
 
@@ -282,7 +282,7 @@ def execute_op_mongodb(container_name):
     def one(id):
         return select_by_id(table_name="employees", id=id)
 
-    run_parallel(one, select_ids, Path(result_file), max_workers=8)
+    run_parallel(one, select_ids, Path(result_file), max_workers=4)
 
     restart_mongodb(container_name)
 
@@ -294,7 +294,7 @@ def execute_op_mongodb(container_name):
     def one(city):
         return select_filtering(city, table_name="employees")
 
-    run_parallel(one, cities, Path(result_file), max_workers=8)
+    run_parallel(one, cities, Path(result_file), max_workers=4)
 
     restart_mongodb(container_name)
 
@@ -304,7 +304,7 @@ def execute_op_mongodb(container_name):
     def one(id):
         return update_salary_by_id(id, table_name="employees")
 
-    run_parallel(one, update_ids, Path(result_file), max_workers=8)
+    run_parallel(one, update_ids, Path(result_file), max_workers=4)
 
     restart_mongodb(container_name)
 
@@ -315,12 +315,12 @@ def execute_op_mongodb(container_name):
     def one(int):
         return join_city_state(table_name="employees", join_table="state_abbrevs")
 
-    run_parallel(one, range(1000), Path(result_file), max_workers=2)
+    run_parallel(one, range(1000), Path(result_file), max_workers=4)
 
     restart_mongodb(container_name)
 
     # Join with index
-    set_index(table_name="employees", join_table="state_abbrevs", use_index=False)
+    set_index(table_name="employees", join_table="state_abbrevs", use_index=True)
     result_file = "./performance_results/mongodb/mongodb_join_with_index.csv"
 
     def one(int):
