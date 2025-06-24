@@ -1,3 +1,0 @@
-table_name,num_documents,client_response_time,total_cpu,system_cpu,cpu_percent,memory_used_bytes
-state_abbrevs,51,0.002817,1798000,23880000000,0.090352,36864
-employees,1000000,2.891222,2645424000,46520000000,68.239656,718794752
