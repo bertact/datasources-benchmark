@@ -302,7 +302,7 @@ def execute_op_postgres(container_name):
     def one(row):
         return insert(row, table_name="employees")
 
-    run_parallel(one, work, Path(result_file),  max_workers=4)
+    run_parallel(one, work, Path(result_file), max_workers=4)
 
     restart_postgres(container_name)
 
@@ -318,7 +318,7 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, select_ids, Path(result_file),  max_workers=4)
+    run_parallel(one, select_ids, Path(result_file), max_workers=4)
 
     restart_postgres(container_name)
 
@@ -334,7 +334,7 @@ def execute_op_postgres(container_name):
             city=city,
         )
 
-    run_parallel(one, list_cities, Path(result_file),  max_workers=4)
+    run_parallel(one, list_cities, Path(result_file), max_workers=4)
 
     restart_postgres(container_name)
 
@@ -347,7 +347,7 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, update_ids, Path(result_file),  max_workers=4)
+    run_parallel(one, update_ids, Path(result_file), max_workers=4)
 
     restart_postgres(container_name)
 
@@ -388,4 +388,4 @@ def execute_op_postgres(container_name):
             id=id,
         )
 
-    run_parallel(one, delete_ids, Path(result_file),  max_workers=4)
+    run_parallel(one, delete_ids, Path(result_file), max_workers=4)
