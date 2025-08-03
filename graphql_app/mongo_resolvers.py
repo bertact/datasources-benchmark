@@ -6,15 +6,13 @@ mutation = MutationType()
 
 
 def get_mongo_collection():
-    client = MongoClient("mongodb://admin:password@mongo-db:27017/?authSource=admin")
+    client = MongoClient("mongo-db", 27017, username="admin", password="password")
     db = client["benchmark_mongodb"]
     return db["employees"]
 
 
-collection = get_mongo_collection()
-
-
 def resolve_select_by_id(_, info, table, id):
+    collection = get_mongo_collection()
     try:
         doc = collection.find_one({"id": id})
         if doc:
@@ -26,6 +24,7 @@ def resolve_select_by_id(_, info, table, id):
 
 
 def resolve_select_filtering(_, info, table, city):
+    collection = get_mongo_collection()
     try:
         filter_query = {
             "city": city,
@@ -45,6 +44,7 @@ def resolve_select_filtering(_, info, table, city):
 
 
 def resolve_update_salary_by_id(_, info, table, id):
+    collection = get_mongo_collection()
     try:
         result = collection.update_one({"id": id}, {"$set": {"salary": 65000}})
         return result.modified_count > 0
@@ -54,6 +54,7 @@ def resolve_update_salary_by_id(_, info, table, id):
 
 
 def resolve_delete_by_id(_, info, table, id):
+    collection = get_mongo_collection()
     try:
         result = collection.delete_one({"id": id})
         return result.deleted_count > 0
@@ -63,6 +64,7 @@ def resolve_delete_by_id(_, info, table, id):
 
 
 def resolve_join_city_state(_, info, table_name, join_table):
+    collection = get_mongo_collection()
     try:
         result = list(
             collection.aggregate(
@@ -97,6 +99,7 @@ def resolve_join_city_state(_, info, table_name, join_table):
 
 
 def resolve_insert_data(_, info, table, columns, values):
+    collection = get_mongo_collection()
     try:
         doc = dict(zip(columns, values))
         collection.insert_one(doc)
@@ -107,6 +110,7 @@ def resolve_insert_data(_, info, table, columns, values):
 
 
 def resolve_get_all_ids(_, info, table, limit=None):
+    collection = get_mongo_collection()
     try:
         result = collection.find({}, {"id"})
         if limit:
@@ -120,6 +124,7 @@ def resolve_get_all_ids(_, info, table, limit=None):
 
 
 def resolve_get_cities(_, info, table, limit=None):
+    collection = get_mongo_collection()
     try:
         pipeline = [
             {"$group": {"_id": "$city"}},
