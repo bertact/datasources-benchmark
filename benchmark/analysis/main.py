@@ -76,4 +76,32 @@ plt.tight_layout()
 plt.savefig("plots_comp/graphql_vs_raw.png")
 plt.close()
 
+
+
+
+for db in ["postgres", "mongodb"]:
+    plt.figure(figsize=(10, 5))
+    subset = df_merged[df_merged["database"] == db]
+
+    ax = sns.barplot(
+        data=subset,
+        x="operation",
+        y="slowdown",
+        palette=["lightblue"] if db == "mongodb" else ["lightsalmon"]
+    )
+
+    # Add slowdown labels
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
+
+    plt.title(f"GraphQL Overhead for {db.capitalize()}")
+    plt.ylabel("Slowdown Factor (GraphQL / Raw)")
+    plt.xlabel("Operation")
+    plt.axhline(1, color='gray', linestyle='--')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig(f"plots_comp/graphql_vs_raw_{db}.png")
+    plt.close()
+
+
 print(df_merged.groupby("database")["slowdown"].mean())

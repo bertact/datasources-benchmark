@@ -9,6 +9,7 @@ plt.rcParams.update({"figure.max_open_warning": 0})
 
 base_path = "../../performance_results"
 databases = ["mongodb", "postgres"]
+custom_palette = {"mongodb": "lightblue", "postgres": "lightsalmon"}
 results = []
 
 for db in databases:
@@ -41,7 +42,13 @@ for operation in all_data["operation"].unique():
     plt.figure(figsize=(10, 6))
     subset = all_data[all_data["operation"] == operation]
     sns.histplot(
-        data=subset, x="duration_ms", hue="database", bins=30, kde=False, element="step"
+        data=subset,
+        x="duration_ms",
+        hue="database",
+        bins=30,
+        kde=False,
+        element="step",
+        palette=custom_palette,
     )
     plt.title(f"Histogram of '{operation}' duration by database")
     plt.xlabel("Duration (ms)")

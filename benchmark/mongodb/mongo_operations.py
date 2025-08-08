@@ -190,7 +190,7 @@ def set_index(table_name, join_table, use_index=True):
         collection_join.create_index("abbreviation", name="idx_state_abbrevs")
     else:
         try:
-            collection.drop_index("idx_employees_city")
+            # collection.drop_index("idx_employees_city")
             collection_join.drop_index("idx_state_abbrevs")
         except Exception:
             pass
