@@ -51,7 +51,7 @@ for operation in all_data["operation"].unique():
         element="step",
         palette=custom_palette,
     )
-    plt.title(f"Histogram of '{operation}' duration by database")
+    #plt.title(f"Histogram of '{operation}' duration by database")
     plt.xlabel("Duration (ms)")
     plt.ylabel("Count")
     plt.tight_layout()
