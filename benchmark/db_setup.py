@@ -9,9 +9,6 @@ from utils import (
 from postgresql.postgresql_setup import postgresql_setup_db
 from mongodb.mongodb_setup import mongodb_setup_db
 
-# from elasticsearch.elasticsearch_setup import elasticsearch_setup_db
-
-
 def main():
 
     datasets_path = "./datasets/csv"
