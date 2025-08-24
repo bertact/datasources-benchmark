@@ -7,19 +7,6 @@ import docker
 import csv
 import json
 
-
-def elasticsearch_connection():
-    try:
-        conn_es = requests.get("http://elasticsearch-db:9200")
-        if conn_es.status_code == 200:
-            print("Connected to ES DB")
-            return conn_es
-        else:
-            print(f"Can't connect to ES DB, status code: {conn_es.status_code}")
-    except Exception as e:
-        print(f"Can't connect to ES DB, error: {e}")
-
-
 def mongo_connection():
     try:
         conn_mongo = MongoClient(
