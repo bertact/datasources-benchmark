@@ -1,0 +1,7 @@
+psycopg2-binary
+pymongo
+requests
+pandas
+docker
+matplotlib
+seaborn
