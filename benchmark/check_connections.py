@@ -1,8 +1,7 @@
-from utils import elasticsearch_connection, mongo_connection, postgres_connection
+from utils import mongo_connection, postgres_connection
 
 
 def main():
-    elasticsearch_connection()
     mongo_connection()
     postgres_connection()
 
