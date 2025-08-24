@@ -47,19 +47,7 @@ services:
       - mongo-db
     networks:
       - elastic
-
-  elasticsearch-db:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.12.1
-    environment:
-      discovery.type: "single-node"
-      ELASTIC-PASSWORD: password
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-    networks:
-      - elastic
-  
+      
   graphql-api:
     build: ./graphql_app
     ports:
@@ -81,7 +69,6 @@ services:
     depends_on:
       - postgresql-db
       - mongo-db
-      - elasticsearch-db
     networks:
       - elastic
     environment:
